@@ -1,8 +1,10 @@
-import pytest
+import copy
+
 import numpy as np
+import pytest
+
 from pcgym import make_env
 from pcgym.oracle import oracle
-import time
 
 # Helper function to create base environment parameters
 base_params = {
@@ -69,10 +71,11 @@ def create_base_env_params(model_name):
         },
     }
 
-    base_params.update({"model": model_name})
-    base_params.update(model_specific_params[model_name])
+    params = copy.deepcopy(base_params)
+    params["model"] = model_name
+    params.update(model_specific_params[model_name])
 
-    return base_params
+    return params
 
 
 # Test configurations
@@ -93,13 +96,11 @@ def test_oracle_initialization(model_name):
     oracle_instance = oracle(env, env_params)
 
     assert oracle_instance.N == 5, f"Default prediction horizon should be 5 for {model_name}"
-    assert np.array_equal(
-        oracle_instance.R, np.zeros((env.Nu - env.Nd_model, env.Nu - env.Nd_model))
-    ), f"Default control penalty should be 0 for {model_name}"
-    assert oracle_instance.T == env_params["tsim"], f"Simulation time mismatch for {model_name}"
-    assert np.allclose(oracle_instance.x0, env_params["x0"]), (
-        f"Initial state mismatch for {model_name}"
+    assert np.array_equal(oracle_instance.R, np.zeros((env.Nu - env.Nd_model, env.Nu - env.Nd_model))), (
+        f"Default control penalty should be 0 for {model_name}"
     )
+    assert oracle_instance.T == env_params["tsim"], f"Simulation time mismatch for {model_name}"
+    assert np.allclose(oracle_instance.x0, env_params["x0"]), f"Initial state mismatch for {model_name}"
 
 
 @pytest.mark.slow
@@ -146,12 +147,8 @@ def test_oracle_with_custom_mpc_params(model_name):
         f"Custom control penalty not set correctly for {model_name}"
     )
     x_log, u_log = oracle_instance.mpc()
-    assert x_log.shape == (env.Nx_oracle, env.N), (
-        f"State log shape mismatch for {model_name} with custom MPC params"
-    )
-    assert u_log.shape == (env.Nu, env.N), (
-        f"Control input log shape mismatch for {model_name} with custom MPC params"
-    )
+    assert x_log.shape == (env.Nx_oracle, env.N), f"State log shape mismatch for {model_name} with custom MPC params"
+    assert u_log.shape == (env.Nu, env.N), f"Control input log shape mismatch for {model_name} with custom MPC params"
 
 
 def calculate_iae(setpoint, actual):
@@ -221,9 +218,7 @@ def test_oracle_disturbance_performance(model_name):
     print(f"Total Variation of control inputs with disturbances: {tv:.4f}")
 
     # Assert some basic robustness criteria
-    assert all(iae < 2000 for iae in iae_values), (
-        f"IAE too high under disturbances for {model_name}"
-    )
+    assert all(iae < 2000 for iae in iae_values), f"IAE too high under disturbances for {model_name}"
     assert tv < 2000, f"Total Variation too high under disturbances for {model_name}"
 
 
@@ -260,12 +255,14 @@ def test_oracle_constraint_handling(model_name):
 
     x_log, u_log = oracle_instance.mpc()
 
-    # Check constraint satisfaction
+    # Check constraint satisfaction after the initial state — the MPC cannot
+    # affect x0, so violations at step 0 reflect test data, not controller behaviour.
     constrained_state = list(env_params["constraints"].keys())[0]
     constrained_state_index = env.model.info()["states"].index(constrained_state)
+    controlled_trajectory = x_log[constrained_state_index, 1:]
     constraint_violations = np.sum(
-        (x_log[constrained_state_index] < env_params["constraints"][constrained_state][0])
-        | (x_log[constrained_state_index] > env_params["constraints"][constrained_state][1])
+        (controlled_trajectory < env_params["constraints"][constrained_state][0])
+        | (controlled_trajectory > env_params["constraints"][constrained_state][1])
     )
 
     print(f"\nConstraint handling metrics for {model_name}:")
