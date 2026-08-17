@@ -163,6 +163,7 @@ class make_env(gym.Env):
             "coupled_oscillator": coupled_oscillators,
             "disease": disease_model,
             "hydraulic_tank": hydraulic_tank,
+            "mimo_cstr_cyclic": mimo_cstr_cyclic,
         }
 
         if self.env_params.get("custom_model") is not None:

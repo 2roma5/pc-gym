@@ -1564,3 +1564,52 @@ class crystallization:
         }
         info["parameters"].pop("int_method", None)  # Remove 'int_method' since it's not a parameter of the model
         return info
+
+@dataclass(frozen=False, kw_only=True)
+class mimo_cstr_cyclic(BaseModel):
+    
+    rho_l: float = 800.0     
+    rho_c: float = 1000.0    
+    Cp_l: float = 3.0        
+    Cp_c: float = 4.19       
+    V_l: float = 24.0        
+    
+    
+    Tl0: float = 283.0       
+    Tc0: float = 273.0       
+    Ca0: float = 4.0         
+    k_curr: float = 85.0     
+    H_curr: float = -850.0   
+
+    int_method: str = "jax"
+    states: list = None
+    inputs: list = None
+    disturbances: list = None
+    uncertainties: dict = None
+
+    def __post_init__(self):
+        self.states = ["Cb", "T1"]
+        self.inputs = ["F1", "Fc"] 
+        self.disturbances = ["Tl0", "Tc0", "Ca0", "k_curr", "H_curr"]
+
+    def __call__(self, x: np.ndarray, u: np.ndarray) -> np.ndarray:
+        Cb, T1 = x[0], x[1]
+        
+        if u.shape[0] == 2:
+            F1, Fc = u[0], u[1]
+            Tl0, Tc0, Ca0, k, H = self.Tl0, self.Tc0, self.Ca0, self.k_curr, self.H_curr
+        else:
+            F1, Fc = u[0], u[1]
+            Tl0, Tc0, Ca0, k, H = u[2], u[3], u[4], u[5], u[6]
+
+        dCb_dt = k * (Ca0 - Cb) - (F1 / self.V_l) * Cb
+
+        dT1_dt = (
+            (F1 / self.V_l) * (Tl0 - T1)
+            + (Fc * self.rho_c * self.Cp_c) / (self.V_l * self.rho_l * self.Cp_l) * (self.Tc0 - T1) # Asumo que usabas T1 o Tc aquí
+            + (k * H) / (self.rho_l * self.Cp_l) * (Ca0 - Cb)
+        )
+
+        ret = [dCb_dt, dT1_dt]
+        xp = jnp if self.int_method == "jax" else np
+        return xp.array(ret) if self.int_method == "jax" else np.array(ret)
