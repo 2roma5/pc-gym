@@ -1590,22 +1590,22 @@ class mimo_cstr_cyclic(BaseModel):
     def __post_init__(self):
         self.states = ["Cb", "T1"]
         self.inputs = ["F1", "Fc"] 
-        self.disturbances = ["Tl0", "Tc", "Ca0", "k_curr", "H_curr"]
+        self.disturbances = ["Tc", "Ca0", "k_curr", "H_curr"]
 
     def __call__(self, x: np.ndarray, u: np.ndarray) -> np.ndarray:
         Cb, T1 = x[0], x[1]
         
         if u.shape[0] == 2:
             F1, Fc = u[0], u[1]
-            Tl0, Tc, Ca0, k, H = self.Tl0, self.Tc_curr, self.Ca0, self.k_curr, self.H_curr
+            Tc, Ca0, k, H = self.Tl0, self.Tc_curr, self.Ca0, self.k_curr, self.H_curr
         else:
             F1, Fc = u[0], u[1]
-            Tl0, Tc, Ca0, k, H = u[2], u[3], u[4], u[5], u[6]
+            Tc, Ca0, k, H = u[2], u[3], u[4], u[5]
 
         dCb_dt = Cb * (- (F1 / self.V) - k) + k * Ca0
 
         dT1_dt = (
-            (F1 / self.V) * (Tl0 - T1) + 
+            (F1 / self.V) * (self.Tl0 - T1) + 
             (1 / (self.rho_l * self.Cp_l)) * (
                 ((Fc * self.rho_c * self.Cp_c * (self.Tc0 - Tc)) / self.V) + k * H * (Ca0 - Cb)
             )
