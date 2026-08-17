@@ -1568,17 +1568,17 @@ class crystallization:
 @dataclass(frozen=False, kw_only=True)
 class mimo_cstr_cyclic(BaseModel):
     
-    rho_l: float = 800.0     
-    rho_c: float = 1000.0    
-    Cp_l: float = 3.0        
-    Cp_c: float = 4.19       
-    V: float = 24.0        
-    
-    Tl0: float = 283.0       
-    Tc0: float = 273.0       
-    Ca0: float = 0.0         
-    k_curr: float = 85.0     
-    H_curr: float = -850.0   
+    rho_l: float = 800.0      # kg/m^3
+    rho_c: float = 1000.0     # kg/m^3
+    Cp_l: float = 3.0         # kJ/kg K
+    Cp_c: float = 4.19        # kJ/kg K
+    V: float = 24.0           # m^3
+     
+    Tl0: float = 283.0        # K
+    Tc0: float = 273.0        # K
+    Ca0: float = 1000         # mol/m^3
+    k_curr: float = 85.0      # h^-1
+    H_curr: float = -850.0    # J/mol
 
     int_method: str = "jax"
     states: list = None
@@ -1592,7 +1592,7 @@ class mimo_cstr_cyclic(BaseModel):
         self.disturbances = ["Tl0", "Tc0", "Ca0", "k_curr", "H_curr"]
 
     def __call__(self, x: np.ndarray, u: np.ndarray) -> np.ndarray:
-        Cb, T1 = x[0], x[1]
+        Cb, T1, Tc = x[0], x[1], x[2]
         
         if u.shape[0] == 2:
             F1, Fc = u[0], u[1]
@@ -1604,9 +1604,8 @@ class mimo_cstr_cyclic(BaseModel):
         dCb_dt = Cb *((F1 / self.V) - k) + k * Ca0
 
         dT1_dt = (
-            (F1 / self.V) * (Tl0 - T1)
-            + (Fc * self.rho_c * self.Cp_c) / (self.V * self.rho_l * self.Cp_l) * (self.Tc0 - T1)
-            + (k * H) / (self.rho_l * self.Cp_l) * (Ca0 - Cb)
+            (F1 / self.V) * (Tl0 - T1) + (1 / self.rho_l * self.Cp_l) * 
+            (((Fc * self.Cp_c * self.Cp_c * (Tc0 - Tc)) / self.V) + k * H * (Ca0 - Cb))
         )
 
         ret = [dCb_dt, dT1_dt]
