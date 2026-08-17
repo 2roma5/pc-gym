@@ -1577,8 +1577,9 @@ class mimo_cstr_cyclic(BaseModel):
     Tl0: float = 283.0        # K
     Tc0: float = 273.0        # K
     Ca0: float = 1000         # mol/m^3
-    k_curr: float = 85.0      # h^-1
-    H_curr: float = -850.0    # J/mol
+    k_curr: float = 26        # h^-1
+    H_curr: float = 70        # J/mol
+    Tc_curr: float = 303      # K
 
     int_method: str = "jax"
     states: list = None
@@ -1589,23 +1590,25 @@ class mimo_cstr_cyclic(BaseModel):
     def __post_init__(self):
         self.states = ["Cb", "T1"]
         self.inputs = ["F1", "Fc"] 
-        self.disturbances = ["Tl0", "Tc0", "Ca0", "k_curr", "H_curr"]
+        self.disturbances = ["Tl0", "Tc", "Ca0", "k_curr", "H_curr"]
 
     def __call__(self, x: np.ndarray, u: np.ndarray) -> np.ndarray:
-        Cb, T1, Tc = x[0], x[1], x[2]
+        Cb, T1 = x[0], x[1]
         
         if u.shape[0] == 2:
             F1, Fc = u[0], u[1]
-            Tl0, Tc0, Ca0, k, H = self.Tl0, self.Tc0, self.Ca0, self.k_curr, self.H_curr
+            Tl0, Tc, Ca0, k, H = self.Tl0, self.Tc_curr, self.Ca0, self.k_curr, self.H_curr
         else:
             F1, Fc = u[0], u[1]
-            Tl0, Tc0, Ca0, k, H = u[2], u[3], u[4], u[5], u[6]
+            Tl0, Tc, Ca0, k, H = u[2], u[3], u[4], u[5], u[6]
 
-        dCb_dt = Cb *((F1 / self.V) - k) + k * Ca0
+        dCb_dt = Cb * (- (F1 / self.V) - k) + k * Ca0
 
         dT1_dt = (
-            (F1 / self.V) * (Tl0 - T1) + (1 / self.rho_l * self.Cp_l) * 
-            (((Fc * self.Cp_c * self.Cp_c * (Tc0 - Tc)) / self.V) + k * H * (Ca0 - Cb))
+            (F1 / self.V) * (Tl0 - T1) + 
+            (1 / (self.rho_l * self.Cp_l)) * (
+                ((Fc * self.rho_c * self.Cp_c * (self.Tc0 - Tc)) / self.V) + k * H * (Ca0 - Cb)
+            )
         )
 
         ret = [dCb_dt, dT1_dt]
