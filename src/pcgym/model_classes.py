@@ -1572,12 +1572,11 @@ class mimo_cstr_cyclic(BaseModel):
     rho_c: float = 1000.0    
     Cp_l: float = 3.0        
     Cp_c: float = 4.19       
-    V_l: float = 24.0        
-    
+    V: float = 24.0        
     
     Tl0: float = 283.0       
     Tc0: float = 273.0       
-    Ca0: float = 4.0         
+    Ca0: float = 0.0         
     k_curr: float = 85.0     
     H_curr: float = -850.0   
 
@@ -1602,11 +1601,11 @@ class mimo_cstr_cyclic(BaseModel):
             F1, Fc = u[0], u[1]
             Tl0, Tc0, Ca0, k, H = u[2], u[3], u[4], u[5], u[6]
 
-        dCb_dt = k * (Ca0 - Cb) - (F1 / self.V_l) * Cb
+        dCb_dt = Cb *((F1 / self.V) - k) + k * Ca0
 
         dT1_dt = (
-            (F1 / self.V_l) * (Tl0 - T1)
-            + (Fc * self.rho_c * self.Cp_c) / (self.V_l * self.rho_l * self.Cp_l) * (self.Tc0 - T1) # Asumo que usabas T1 o Tc aquí
+            (F1 / self.V) * (Tl0 - T1)
+            + (Fc * self.rho_c * self.Cp_c) / (self.V * self.rho_l * self.Cp_l) * (self.Tc0 - T1)
             + (k * H) / (self.rho_l * self.Cp_l) * (Ca0 - Cb)
         )
 
